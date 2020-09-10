@@ -1,9 +1,9 @@
-# Homelab Deployment - Openshift/OKD 4.4.x on RHVM/Ovirt 4.3
+# Homelab Deployment - Openshift/OKD 4.4.x-4.5.x on RHEV/Ovirt 4.3.x
 ---
 
 # Overview
 
-The following developer notes outline and detail the steps necessary to get Openshift 4.4.x (or OKD 4.4.x) running on RHVM 4.3 (or Ovirt 4.3). 
+The following developer notes outline and detail the steps necessary to get Openshift 4.4.x/4.5.x (or OKD 4.4.x/4.5.x) running on RHVM 4.3.9/4.3.10 (or Ovirt 4.3.9/4.3.10). 
 
 These notes cater to individuals that are interested in building their own homelab servers. 
 
@@ -69,6 +69,79 @@ For this rigg, we are using the following:
     - https://discourse.pi-hole.net/t/howto-using-pi-hole-as-lan-dns-server/533
     - https://qiita.com/bmj0114/items/9c24d863bcab1a634503
 
+1. Login to your Pi-hole DNS server: `ssh root@pihole.thekeunster.local`
+2. Create or add the following entries to the following file: `/etc/pihole/lan.list`
+
+add the following contents: 
+
+```bash
+10.0.1.90       api.okd.thekeunster.local
+10.0.1.90       api-int.okd.thekeunster.local
+10.0.1.91       *.apps.okd.thekeunster.local
+```
+
+3. Create or add the following to enable wildcard entries to the following file: `/etc/dnsmasq.d/02-lan.conf`
+
+add the following contents: 
+
+```bash
+addn-hosts=/etc/pihole/lan.list
+address=/apps.okd.thekeunster.local/10.0.1.91
+```
+
+4. restart the DNS service. 
+
+```bash
+sudo pihole restartdns
+```
+
+5. validate your DNS
+
+Validate single DNS entries: 
+
+```bash
+nslookup api.okd.thekeunster.local
+
+# should yield
+Server:         10.0.1.28
+Address:        10.0.1.28#53
+
+Name:   api.okd.thekeunster.local
+Address: 10.0.1.90
+```
+
+```bash
+nslookup api-int.okd.thekeunster.local
+
+# should yield
+Server:         10.0.1.28
+Address:        10.0.1.28#53
+
+Name:   api.okd.thekeunster.local
+Address: 10.0.1.90
+```
+
+Validate wildcard entries:
+
+```bash
+nslookup test1.apps.okd.thekeunster.local
+Server:         10.0.1.28
+Address:        10.0.1.28#53
+
+# should yield
+Name:   test1.apps.okd.thekeunster.local
+Address: 10.0.1.91
+```
+
+```bash
+nslookup test2.apps.okd.thekeunster.local
+Server:         10.0.1.28
+Address:        10.0.1.28#53
+
+# should yield
+Name:   test2.apps.okd.thekeunster.local
+Address: 10.0.1.91
+```
 ## Setup a CA Certificate
 
 Follow the directions from official documentation (to a tee): 
@@ -98,19 +171,21 @@ You can download release distributions from either one of the following resource
 
 **Openshift Releases** - https://openshift-release.svc.ci.openshift.org/
 
+**Openshift Latest Stable (4.5)** - https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-4.5/
+
 **OKD Release** - https://origin-release.svc.ci.openshift.org/
 
 For all intents and purposes, the installations between the two above are virtually the same. 
 
-For this example, we'll be using __Openshift 4.4.7__. 
+For this example, we'll be using __Openshift 4.5.8__. 
 
 Depending on your where you'll be running your installer from, in this case a linux box, make sure to grab the right client and installer. 
 
 for example: 
 
 ```bash
-openshift-client-linux-4.4.7.tar.gz
-openshift-install-linux-4.4.7.tar.gz
+openshift-client-linux-4.5.8.tar.gz
+openshift-install-linux-4.5.8.tar.gz
 ```
 
 ## Extract the Client
@@ -118,7 +193,7 @@ openshift-install-linux-4.4.7.tar.gz
 Extract the client and make accessible in your PATH
 
 ```bash
-tar zxvf openshift-client-linux-4.4.7.tar.gz
+tar zxvf openshift-client-linux-4.5.8.tar.gz
 sudo mv kubectl /usr/local/bin
 sudo mv oc /usr/local bin
 ```
@@ -128,7 +203,7 @@ sudo mv oc /usr/local bin
 Extract the installer to any location of your choosing (i.e. `/home/user1/workspace/ocp` )
 
 ```bash
-tar zxvf openshift-install-linux-4.4.7.tar.gz
+tar zxvf openshift-install-linux-4.5.8.tar.gz
 mv openshift-installer /home/user1/workpace/ocp
 ```
 
@@ -174,7 +249,7 @@ This command will do the following:
 
 During the creation of the installation config, you may be asked to enter the contents of the cert you pulled down from RHVM 4.3 (or Ovirt 4.3). If so, you can enter the contents of that cert here. Otherwise, you can opt out. 
 
-Upon sucessful creation of the installation configuration, open and examine the contents of the file `~/.ovirt/ovirt-config.yaml`. If you do not have the `ovirt_ca_bundle` parameter as shown below, add it. It will look similar to the following in it's entirety. 
+Upon successful creation of the installation configuration, open and examine the contents of the file `~/.ovirt/ovirt-config.yaml`. If you do not have the `ovirt_ca_bundle` parameter as shown below, add it. It will look similar to the following in it's entirety. 
 
 ```yaml
 ovirt_url: https://labs.thekeunster.local/ovirt-engine/api
@@ -244,6 +319,12 @@ Run the following:
 ```
 
 if all goes well, when this finishes you will have a running openshift cluster. 
+
+## Post Operations
+
+### Setup Persistent Storage
+
+TODO
 
 ## Troubleshooting
 
